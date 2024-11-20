@@ -1,11 +1,27 @@
 module PrismaSchemaPure where
 
--- Prisma schema as it's pertains to the client
+-- Prisma schema as it pertains to the client
 
 data Schema = Schema {
-    databaseUrl :: String,
+    databaseUrl :: DatabaseURL,
     enumTypes :: [EnumType],
     models :: [Model]
+} deriving (Show, Eq)
+
+data Model = Model {
+    modelName :: String,
+    fields :: [Field]
+} deriving (Show, Eq)
+
+data EnumType = EnumType {
+    enumName :: String,
+    values :: [String]
+} deriving (Show, Eq)
+
+data Field = Field {
+    fieldName :: String,
+    fieldType :: FieldType,
+    attributes :: [Attribute]
 } deriving (Show, Eq)
 
 data DatabaseURL = 
@@ -13,21 +29,12 @@ data DatabaseURL =
   | EnvironmentVariable String
   deriving (Show, Eq)
 
-data EnumDefinition = EnumDefinition {
-    name :: String,
-    values :: [String]
-} deriving (Show, Eq)
-
-data Model = Model {
-    name :: String,
-    fields :: [Field]
-} deriving (Show, Eq)
-
 data FieldType = 
   IntField -- Datetime gets mapped to int
-  | StringField -- Json gets mapped to string
-  | BooleanField
-  | DoubleField -- Decimal and float get mapped to double
+  | TextField 
+  | RealField -- Decimal and float get mapped to double
+  | DecimalField
+  | BlobField
   | BytesField
   | ListOf FieldType
   | OptionalField FieldType
@@ -63,10 +70,4 @@ data Expression =
   | StringExpression StringExpression
   | DateTimeExpression DateTimeExpression
   deriving (Show, Eq)
-
-data Field = Field {
-    name :: String,
-    fieldType :: FieldType,
-    attributes :: [Attribute],
-} deriving (Show, Eq)
 

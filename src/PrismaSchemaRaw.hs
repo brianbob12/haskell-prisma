@@ -13,13 +13,13 @@ data DatabaseURL =
   | EnvironmentVariable String
   deriving (Show, Eq)
 
-data EnumDefinition = EnumDefinition {
-    name :: String,
+data EnumType = EnumDefinition {
+    enumName :: String,
     values :: [String]
 } deriving (Show, Eq)
 
 data Model = Model {
-    name :: String,
+    modelName :: String,
     fields :: [Field]
 } deriving (Show, Eq)
 
@@ -34,7 +34,7 @@ data FieldType =
   | BytesField
   | ListOf FieldType
   | OptionalField FieldType
-  | RelationField String -- Name of the model this field relates to
+  | ModelField String -- Name of the model this field relates to
   | EnumField String -- Name of the enum type
   deriving (Show, Eq)
 
@@ -70,8 +70,8 @@ data Expression =
   deriving (Show, Eq)
 
 data Field = Field {
-    name :: String,
+    fieldName :: String,
     fieldType :: FieldType,
-    attributes :: [Attribute],
-} deriving (Show, Eq)
+    attributes :: [Attribute]
+ } deriving (Show, Eq)
 
