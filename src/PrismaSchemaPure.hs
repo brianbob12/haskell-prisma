@@ -1,4 +1,16 @@
-module PrismaSchemaPure where
+module PrismaSchemaPure (
+  Schema,
+  Model,
+  EnumType,
+  DatabaseURL,
+  Field,
+  FieldType,
+  Attribute,
+  Expression,
+  IntExpression,
+  StringExpression,
+  DateTimeExpression
+) where
 
 -- Prisma schema as it pertains to the client
 
@@ -18,21 +30,21 @@ data EnumType = EnumType {
     values :: [String]
 } deriving (Show, Eq)
 
+data DatabaseURL = 
+  DirectURL String
+  | EnvironmentVariable String
+  deriving (Show, Eq)
+
 data Field = Field {
     fieldName :: String,
     fieldType :: FieldType,
     attributes :: [Attribute]
 } deriving (Show, Eq)
 
-data DatabaseURL = 
-  DirectURL String
-  | EnvironmentVariable String
-  deriving (Show, Eq)
-
 data FieldType = 
   IntField -- Datetime gets mapped to int
   | TextField 
-  | RealField -- Decimal and float get mapped to double
+  | RealField 
   | DecimalField
   | BlobField
   | BytesField
@@ -50,6 +62,12 @@ data Attribute =
   | UpdatedAtAttribute
   deriving (Show, Eq)
 
+data Expression = 
+  IntExpression IntExpression
+  | StringExpression StringExpression
+  | DateTimeExpression DateTimeExpression
+  deriving (Show, Eq)
+
 data IntExpression = 
   IntLiteralExpression Int
   | AutoIncrementExpression
@@ -64,10 +82,3 @@ data StringExpression =
 data DateTimeExpression = 
   NowExpression
   deriving (Show, Eq)
-
-data Expression = 
-  IntExpression IntExpression
-  | StringExpression StringExpression
-  | DateTimeExpression DateTimeExpression
-  deriving (Show, Eq)
-

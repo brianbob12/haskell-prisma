@@ -1,11 +1,33 @@
-module PrismaSchemaRaw where
+module PrismaSchemaRaw (
+  Schema,
+  Model,
+  EnumType,
+  DatabaseURL,
+  Field,
+  FieldType,
+  Attribute,
+  Expression,
+  IntExpression,
+  StringExpression,
+  DateTimeExpression
+) where
 
 -- Prisma schema as it exists in the schema.prisma file
 
 data Schema = Schema {
-    databaseUrl :: String,
+    databaseUrl :: DatabaseURL,
     enumTypes :: [EnumType],
     models :: [Model]
+} deriving (Show, Eq)
+
+data Model = Model {
+    modelName :: String,
+    fields :: [Field]
+} deriving (Show, Eq)
+
+data EnumType = EnumDefinition {
+    enumName :: String,
+    values :: [String]
 } deriving (Show, Eq)
 
 data DatabaseURL = 
@@ -13,15 +35,11 @@ data DatabaseURL =
   | EnvironmentVariable String
   deriving (Show, Eq)
 
-data EnumType = EnumDefinition {
-    enumName :: String,
-    values :: [String]
-} deriving (Show, Eq)
-
-data Model = Model {
-    modelName :: String,
-    fields :: [Field]
-} deriving (Show, Eq)
+data Field = Field {
+    fieldName :: String,
+    fieldType :: FieldType,
+    attributes :: [Attribute]
+ } deriving (Show, Eq)
 
 data FieldType = 
   IntField
@@ -48,6 +66,12 @@ data Attribute =
   | IgnoreAttribute
   deriving (Show, Eq)
 
+data Expression = 
+  IntExpression IntExpression
+  | StringExpression StringExpression
+  | DateTimeExpression DateTimeExpression
+  deriving (Show, Eq)
+
 data IntExpression = 
   IntLiteralExpression Int
   | AutoIncrementExpression
@@ -62,16 +86,3 @@ data StringExpression =
 data DateTimeExpression = 
   NowExpression
   deriving (Show, Eq)
-
-data Expression = 
-  IntExpression IntExpression
-  | StringExpression StringExpression
-  | DateTimeExpression DateTimeExpression
-  deriving (Show, Eq)
-
-data Field = Field {
-    fieldName :: String,
-    fieldType :: FieldType,
-    attributes :: [Attribute]
- } deriving (Show, Eq)
-
