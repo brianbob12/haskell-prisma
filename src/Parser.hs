@@ -38,7 +38,14 @@ instance Applicative Parser where
   p1 <*> p2 = P $ \ s -> do (f, s') <- doParse p1 s
                             (x,s'') <- doParse p2 s'
                             return (f x, s'')
-                            
+
+instance Monad Parser where
+  return = pure
+  (>>=) :: Parser a -> (a -> Parser b) -> Parser b
+  p >>= f = P $ \s -> do 
+    (x, s') <- doParse p s
+    doParse (f x) s'
+
 instance Alternative Parser where
   
   empty :: Parser a

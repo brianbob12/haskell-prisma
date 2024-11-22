@@ -22,6 +22,56 @@ tests :: Test = TestList [
     parse fieldTypeP "Boolean?" ~?= Right $ OptionalField BooleanField,
     parse fieldTypeP "User" ~?= Right $ ModelField "User",
     parse fieldP "id String @id @default(cuid())" ~?= Right $ Field "id" StringField [IDAttribute, DefaultAttribute (StringExpression CuidExpression)]
-]
+    parse enumP "enum Role {
+        USER
+        ADMIN
+      }" ~?= Right $ EnumType {enumName="Role", values=["USER", "ADMIN"]}
+    parse modelP "model User {
+        id    Int     @id @default(autoincrement())
+        email String  @unique
+        name  String?
+        role  Role    @default(USER)
+      }" ~?= Right $ Model {modelName="User", 
+                            fields=[Field {fieldName="id", fieldType=IntField, attributes=[IDAttribute, DefaultAttribute AutoIncrementExpression]}, 
+                                    Field {fieldName="email", fieldType=StringField, attributes=[UniqueAttribute]}, 
+                                    Field {fieldName="name", fieldType=(OptionalField StringField), attributes=[]}, 
+                                    Field {fieldName="role", fieldType=(ModelField "Role"), attributes=[DefaultAttribute (EnumExpression "USER")]}
+                            ]},
+    parse datasourceP "datasource {
+        provider = \"postgresql\"
+        url      = env(\"DATABASE_URL\")
+      }" ~?= Right $ DatabaseURL (EnvironmentVariable "DATABASE_URL"),
+    parse schemaP "datasource db {
+        provider = \"postgresql\"
+        url      = env(\"DATABASE_URL\")
+      }
 
--- TODO: add tests for parsing enums, models, and urls (the important things in curly braces)
+      generator client {
+        provider = \"prisma-client-js\"
+      }
+
+      model User {
+        id      Int      @id @default(autoincrement())
+        email   String   @unique
+        name    String?
+        role    Role     @default(USER)
+      }
+
+      enum Role {
+        USER
+        ADMIN
+      }" ~?= Right $ Schema {
+        databaseUrl = DatabaseURL (EnvironmentVariable "DATABASE_URL"),
+        enumTypes = [EnumType {enumName="Role", values=["USER", "ADMIN"]}],
+        models = [Model {
+            modelName = "User",
+            fields = [
+                Field {fieldName="id", fieldType=IntField, attributes=[IDAttribute, DefaultAttribute AutoIncrementExpression]}, 
+                Field {fieldName="email", fieldType=StringField, attributes=[UniqueAttribute]}, 
+                Field {fieldName="name", fieldType=(OptionalField StringField), attributes=[]}, 
+                Field {fieldName="role", fieldType=(ModelField "Role"), attributes=[DefaultAttribute (EnumExpression "USER")]}
+            ]
+        }]
+      }
+
+]
