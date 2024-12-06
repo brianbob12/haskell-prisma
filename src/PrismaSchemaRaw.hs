@@ -23,6 +23,13 @@ data Model = Model {
     fields :: [Field]
 } deriving (Show, Eq)
 
+data Field = Field {
+    fieldName :: String,
+    fieldType :: FieldType,
+    attributes :: [Attribute]
+ } deriving (Show, Eq)
+
+
 data FieldType = 
   IntField
   | StringField
@@ -35,7 +42,8 @@ data FieldType =
   | ListOf FieldType
   | OptionalField FieldType
   | ModelField String -- Name of the model this field relates to
-  | EnumField String -- Name of the enum type
+--  | EnumField String -- Name of the enum type -- for the raw, should get mapped to Model
+-- since there's no way for the parser to know if it's a model or enum without knowledge of the whole schema
   deriving (Show, Eq)
 
 data Attribute = 
@@ -68,10 +76,4 @@ data Expression =
   | StringExpression StringExpression
   | DateTimeExpression DateTimeExpression
   deriving (Show, Eq)
-
-data Field = Field {
-    fieldName :: String,
-    fieldType :: FieldType,
-    attributes :: [Attribute]
- } deriving (Show, Eq)
 
