@@ -13,24 +13,36 @@ generate s =
 
 genClient :: [Model] -> String
 genClient = gen . map modelName where
-  gen ms = clientStart ++ concat (map genExports ms) ++ clientMid ++ concat (map genImports ms)
+  gen ms = unlines [
+    clientStart,
+    concat (map genExports ms),
+    clientMid,
+    concat (map genImports ms),
+    concat (map genBindings ms)]
   clientStart = "module Client (\n\
                 \  IntQuery (..), StringQuery (..), DoubleQuery (..), BytesQuery (..),\n\
                 \  IntUpdate (..), StringUpdate (..), DoubleUpdate (..), BytesUpdate (..)\n"
   clientMid = ") where\n\nimport ClientInternal\n"
-  genImports m = "import qualified " ++ m ++ "\n"
-  genExports m = subst m "  , x.x (..),\n\
-                         \  x.Value (..), x.Query (..), x.Update (..),\n\
-                         \  x.create, x.createMany,\n\
-                         \  x.findFirst, x.findMany, x.findUnique,\n\
-                         \  x.updateMany, x.updateUnique,\n\
-                         \  x.deleteMany, x.deleteUnique\n"
+  genImports m = subst 'x' m "import qualified x\n" 
+  genBindings m = unlines ((map (subst 'z' (makeLower m)) . map (subst 'x' m)) [
+    "\ntype x_Value = x.Value", "type x_Query = x.Query", "type x_Update = x.Update",
+    "z_create = x.create", "z_createMany = x.create",
+    "z_findFirst = x.findFirst", "z_findMany = x.findMany", "z_findUnique = x.findUnique",
+    "z_updateMany = x.updateMany", "z_updateUnique = x.updateUnique",
+    "z_deleteMany = x.deleteMany", "z_deleteUnique = x.deleteUnique"])
+  makeLower [] = []
+  makeLower (x:xs) = toLower x : xs
+  genExports m = (subst 'z' (makeLower m) . subst 'x' m) "  , x.x (..),\n\
+                         \  x_Value (..), x_Query (..), x_Update (..),\n\
+                         \  z_create, z_createMany,\n\
+                         \  z_findFirst, z_findMany, z_findUnique,\n\
+                         \  z_updateMany, z_updateUnique,\n\
+                         \  z_deleteMany, z_deleteUnique\n"
 
 -- replaces every 'x' with x
-subst :: String -> String -> String
-subst x [] = []
-subst x ('x':ss) = x ++ subst x ss
-subst x (s:ss) = s : subst x ss
+subst :: Char -> String -> String -> String
+subst x y [] = []
+subst x y (s:ss) = if s == x then y ++ subst x y ss else s : subst x y ss
 
 genUrl :: DatabaseURL -> String
 genUrl (DirectURL url) = "dbUrl = return \"" ++ url ++ "\""
@@ -61,7 +73,7 @@ genModel name url fields = unlines [
     genToClientQueries,
     genConvertValue,
     genToClientUpdate] where
-  modelTop = subst name "module x (\n\
+  modelTop = subst 'x' name "module x (\n\
                         \  x (..),\n\
                         \  Value (..), Query (..), Update (..),\n\
                         \  create, createMany,\n\
@@ -75,15 +87,15 @@ genModel name url fields = unlines [
                         \import System.Environment (getEnv)\n"
   -- define the record type for the model
   genRecord = unlines [
-    subst name "data x = x {",
+    subst 'x' name "data x = x {",
     unlines (genRecordLines fields),
     "} deriving Show\n"]
   genRecordLines :: [Field] -> [String]
   genRecordLines [] = []
-  genRecordLines [f] = let (_, name, typ) = fieldInfo f in
-    ["  get" ++ name ++ " :: " ++ typ]
-  genRecordLines (f:fs) = let (_, name, typ) = fieldInfo f in
-    ("  get" ++ name ++ " :: " ++ typ ++ ",") : genRecordLines fs
+  genRecordLines [f] = let (_, n, typ) = fieldInfo f in
+    ["  get" ++ name ++ n ++ " :: " ++ typ]
+  genRecordLines (f:fs) = let (_, n, typ) = fieldInfo f in
+    ("  get" ++ name ++ n ++ " :: " ++ typ ++ ",") : genRecordLines fs
   -- define the value type for the model
   genValue = unlines ["data Value =", unlines (genValueLines fields), ""]
   genValueLines :: [Field] -> [String]
@@ -128,7 +140,7 @@ genModel name url fields = unlines [
     n ++ " " ++ singleArgMembers fs
   -- define the function which turns a result list into a record list
   genMapResults = unlines [
-    subst name "mapResults :: [ResultTuple] -> [x]",
+    subst 'x' name "mapResults :: [ResultTuple] -> [x]",
     "mapResults = map (\\" ++ singleResult ++ " -> " ++ 
       name ++ " " ++ singleArgs ++ ")\n"]
   -- define the function which converts a value list into a general value list
