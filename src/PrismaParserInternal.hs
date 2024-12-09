@@ -131,6 +131,7 @@ fieldTypeP = wsP $ do
       mapP "Decimal" DecimalField,
       mapP "Json" JsonField,
       mapP "Bytes" BytesField,
+      mapP "DateTime" DateTimeField,
       modelNameP]
     modelNameP = ModelField <$> nameP
     modifyP t = choice [
