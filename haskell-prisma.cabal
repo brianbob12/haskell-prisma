@@ -27,11 +27,10 @@ library
   exposed-modules:
       Lib
   other-modules:
-      PrismaSchemaPure
+      PrismaGenerator
       PrismaSchemaRaw
       Parser
       PrismaParser
-      TestPrismaParser
       Paths_haskell_prisma
   autogen-modules:
       Paths_haskell_prisma
