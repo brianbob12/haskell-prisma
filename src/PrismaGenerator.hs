@@ -16,10 +16,10 @@ genClient = gen . map modelName where
   gen ms = clientStart ++ concat (map genExports ms) ++ clientMid ++ concat (map genImports ms)
   clientStart = "module Client (\n\
                 \  IntQuery (..), StringQuery (..), DoubleQuery (..), BytesQuery (..),\n\
-                \  IntUpdate (..), StringUpdate (..), DoubleUpdate (..), BytesUpdate (..),\n"
+                \  IntUpdate (..), StringUpdate (..), DoubleUpdate (..), BytesUpdate (..)\n"
   clientMid = ") where\n\nimport ClientInternal\n"
-  genImports m = "import qualified " ++ m
-  genExports m = subst m "  x.x (..),\n\
+  genImports m = "import qualified " ++ m ++ "\n"
+  genExports m = subst m "  , x.x (..),\n\
                          \  x.Value (..), x.Query (..), x.Update (..),\n\
                          \  x.create, x.createMany,\n\
                          \  x.findFirst, x.findMany, x.findUnique,\n\
@@ -53,6 +53,7 @@ genModel name url fields = unlines [
     "dbUrl :: IO String", url ++ "\n",
     "table :: String", "table = \"" ++ name ++ "\"\n",
     genResultType,
+    genResultTuple,
     genSingleResult,
     genMapResults,
     modelFunctions,
@@ -105,8 +106,10 @@ genModel name url fields = unlines [
   genUpdateRest (f:fs) = ("  | " ++ updateType f) : genUpdateRest fs
   updateType f = let (_, name, typ) = fieldInfo f in
     "U" ++ name ++ " CI." ++ typ ++ "Update"
+  -- define an alias for the record type
+  genResultType = "type RecordType = " ++ name
   -- define the find result type (from sqlite-simple query) for the model
-  genResultType = "type ResultTuple = (" ++ genResultMembers fields ++ ")\n"
+  genResultTuple = "type ResultTuple = (" ++ genResultMembers fields ++ ")\n"
   genResultMembers [] = []
   genResultMembers [f] = let (_, _, typ) = fieldInfo f in typ
   genResultMembers (f:fs) = genResultMembers [f] ++ ", " ++ genResultMembers fs
@@ -192,7 +195,7 @@ modelFunctions = unlines [
   "  SQL.execute_ conn (SQL.Query (fromString sqlQuery))",
   "  SQL.close conn",
   "",
-  "findFirst :: [Query] -> IO (Maybe User)",
+  "findFirst :: [Query] -> IO (Maybe RecordType)",
   "findFirst queries = do",
   "  url <- dbUrl",
   "  conn <- SQL.open url",
@@ -201,7 +204,7 @@ modelFunctions = unlines [
   "  SQL.close conn",
   "  return $ singleResult results",
   "",
-  "findMany :: [Query] -> IO [User]",
+  "findMany :: [Query] -> IO [RecordType]",
   "findMany queries = do",
   "  url <- dbUrl",
   "  conn <- SQL.open url",
@@ -210,7 +213,7 @@ modelFunctions = unlines [
   "  SQL.close conn",
   "  return $ mapResults results",
   "",
-  "findUnique :: [Value] -> IO (Maybe User)",
+  "findUnique :: [Value] -> IO (Maybe RecordType)",
   "findUnique values = do",
   "  url <- dbUrl",
   "  conn <- SQL.open url",
