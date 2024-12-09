@@ -62,6 +62,7 @@ test-suite haskell-prisma-test
   other-modules:
       TestPrismaParser
       Paths_haskell_prisma
+      GeneratorToolkitSpec
   autogen-modules:
       Paths_haskell_prisma
   hs-source-dirs:
