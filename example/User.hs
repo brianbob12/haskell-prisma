@@ -1,4 +1,4 @@
-module Client.User (
+module User (
   User (User), getId, getEmail, getName, getDob,
   Value (..), Query (..), Update (..),
   create, createMany,
