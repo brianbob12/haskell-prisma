@@ -4,6 +4,10 @@ import Data.Char
 
 import PrismaSchemaRaw
 
+import FormatString
+
+import GeneratorToolkit
+
 -- take a schema, return list of filename, content pairs
 generate :: Schema -> [(String, String)]
 generate s =
@@ -13,36 +17,56 @@ generate s =
 
 genClient :: [Model] -> String
 genClient = gen . map modelName where
+
   gen ms = unlines [
     clientStart,
     concat (map genExports ms),
     clientMid,
     concat (map genImports ms),
     concat (map genBindings ms)]
-  clientStart = "module Client (\n\
-                \  IntQuery (..), StringQuery (..), DoubleQuery (..), BytesQuery (..),\n\
-                \  IntUpdate (..), StringUpdate (..), DoubleUpdate (..), BytesUpdate (..)\n"
+
+  clientStart = unlines [
+    "module Client (",
+    "  -- query constructors from ClientInternal",
+    "  IntQuery (..), StringQuery (..), DoubleQuery (..), BytesQuery (..),",
+    "  IntUpdate (..), StringUpdate (..), DoubleUpdate (..), BytesUpdate (..),",
+    "  "
+    ]
+
+  genExports m = unlinesFormatString [
+    "  ",
+    "  --Exports for ${name}",
+    "  ${name}.${name} (..),",
+    "  ${name}_Value (..), ${name}_Query (..), ${name}_Update (..),",
+    "  ${nameLower}_create, ${nameLower}_createMany,",
+    "  ${nameLower}_findFirst, ${nameLower}_findMany, ${nameLower}_findUnique,",
+    "  ${nameLower}_updateMany, ${nameLower}_updateUnique,",
+    "  ${nameLower}_deleteMany, ${nameLower}_deleteUnique"
+    ] [("name", m), ("nameLower", makeLower m)]
+
   clientMid = ") where\n\nimport ClientInternal\n"
-  genImports m = subst 'x' m "import qualified x\n" 
-  genBindings m = unlines ((map (subst 'z' (makeLower m)) . map (subst 'x' m)) [
-    "\ntype x_Value = x.Value", "type x_Query = x.Query", "type x_Update = x.Update",
-    "z_create = x.create", "z_createMany = x.create",
-    "z_findFirst = x.findFirst", "z_findMany = x.findMany", "z_findUnique = x.findUnique",
-    "z_updateMany = x.updateMany", "z_updateUnique = x.updateUnique",
-    "z_deleteMany = x.deleteMany", "z_deleteUnique = x.deleteUnique"])
+
+  genImports m = formatString "import qualified ${name}\n" [("name", m)]
+  genBindings m = unlinesFormatString [
+    "",
+    "-- module bindings for ${name}",
+    "type ${name}_Value = ${name}.Value",
+    "type ${name}_Query = ${name}.Query",
+    "type ${name}_Update = ${name}.Update",
+    "",
+    "${nameLower}_create = ${name}.create",
+    "${nameLower}_createMany = ${name}.create",
+    "${nameLower}_findFirst = ${name}.findFirst",
+    "${nameLower}_findMany = ${name}.findMany",
+    "${nameLower}_findUnique = ${name}.findUnique",
+    "${nameLower}_updateMany = ${name}.updateMany",
+    "${nameLower}_updateUnique = ${name}.updateUnique",
+    "${nameLower}_deleteMany = ${name}.deleteMany",
+    "${nameLower}_deleteUnique = ${name}.deleteUnique"
+    ] [("name", m), ("nameLower", makeLower m)]
   makeLower [] = []
   makeLower (x:xs) = toLower x : xs
-  genExports m = (subst 'z' (makeLower m) . subst 'x' m) "  , x.x (..),\n\
-                         \  x_Value (..), x_Query (..), x_Update (..),\n\
-                         \  z_create, z_createMany,\n\
-                         \  z_findFirst, z_findMany, z_findUnique,\n\
-                         \  z_updateMany, z_updateUnique,\n\
-                         \  z_deleteMany, z_deleteUnique\n"
 
--- replaces every 'x' with x
-subst :: Char -> String -> String -> String
-subst x y [] = []
-subst x y (s:ss) = if s == x then y ++ subst x y ss else s : subst x y ss
 
 genUrl :: DatabaseURL -> String
 genUrl (DirectURL url) = "dbUrl = return \"" ++ url ++ "\""
@@ -50,20 +74,20 @@ genUrl (EnvironmentVariable var) = "getEnv \"" ++ var ++ "\""
 
 genModels :: [Model] -> String -> [(String, String)]
 genModels ms url = map f ms where
-  f m = 
+  f m =
     let n = modelName m in
     let fs = fields m in
     (n ++ ".hs", genModel n url fs)
 
 genModel :: String -> String -> [Field] -> String
-genModel name url fields = unlines [
+genModel modelName url fields = unlines [
     modelTop,
     genRecord,
     genValue,
     genQuery,
     genUpdate,
     "dbUrl :: IO String", url ++ "\n",
-    "table :: String", "table = \"" ++ name ++ "\"\n",
+    "table :: String", "table = \"" ++ modelName ++ "\"\n",
     genResultType,
     genResultTuple,
     genSingleResult,
@@ -73,76 +97,111 @@ genModel name url fields = unlines [
     genToClientQueries,
     genConvertValue,
     genToClientUpdate] where
-  modelTop = subst 'x' name "module x (\n\
-                        \  x (..),\n\
-                        \  Value (..), Query (..), Update (..),\n\
-                        \  create, createMany,\n\
-                        \  findFirst, findMany, findUnique,\n\
-                        \  updateMany, updateUnique,\n\
-                        \  deleteMany, deleteUnique\n\
-                        \) where\n\n\
-                        \import qualified ClientInternal as CI\n\
-                        \import qualified Database.SQLite.Simple as SQL\n\
-                        \import Data.String (fromString)\n\
-                        \import System.Environment (getEnv)\n"
-  -- define the record type for the model
-  genRecord = unlines [
-    subst 'x' name "data x = x {",
-    unlines (genRecordLines fields),
-    "} deriving Show\n"]
-  genRecordLines :: [Field] -> [String]
-  genRecordLines [] = []
-  genRecordLines [f] = let (_, n, typ) = fieldInfo f in
-    ["  get" ++ name ++ n ++ " :: " ++ typ]
-  genRecordLines (f:fs) = let (_, n, typ) = fieldInfo f in
-    ("  get" ++ name ++ n ++ " :: " ++ typ ++ ",") : genRecordLines fs
+
+  modelTop = unlinesFormatString [
+    "module ${name} (",
+    "  ${name} (..),",
+    "  Value (..), Query (..), Update (..),",
+    "  create, createMany,",
+    "  findFirst, findMany, findUnique,",
+    "  updateMany, updateUnique,",
+    "  deleteMany, deleteUnique",
+    ") where",
+    "",
+    "import qualified ClientInternal as CI",
+    "import qualified Database.SQLite.Simple as SQL",
+    "import Data.String (fromString)",
+    "import System.Environment (getEnv)"
+    ] [("name", modelName)]
+
+  -- Generates the record type for the model
+  genRecord = generateRecordData modelName
+    (map (\field -> DataArg
+      (formatString "get${modelName}${fieldName}"
+        [("modelName", modelName),
+         ("fieldName", capitalize $ fieldName field)])
+      (typeMap $ fieldType field))
+    fields)
+
+
   -- define the value type for the model
-  genValue = unlines ["data Value =", unlines (genValueLines fields), ""]
-  genValueLines :: [Field] -> [String]
-  genValueLines [] = []
-  genValueLines (f:fs) = ("    " ++ valueType f) : genValueRest fs
-  genValueRest [] = []
-  genValueRest (f:fs) = ("  | " ++ valueType f) : genValueRest fs
-  valueType f = let (_, name, typ) = fieldInfo f in name ++ " " ++ typ
+  genValue = generateSumData "Value"
+    (map (\field -> DataArg
+      (capitalize $ fieldName field)
+      (typeMap $ fieldType field))
+    fields)
+
   -- define the query type for the model
-  genQuery = unlines ["data Query =", "    Or [Query]", "  | Not Query",
-    unlines (genQueryLines fields), ""]
-  genQueryLines [] = []
-  genQueryLines (f:fs) = let (_, name, typ) = fieldInfo f in
-    ("  | Q" ++ name ++ " CI." ++ typ ++ "Query") : genQueryLines fs
-  -- define the update type for the model
-  genUpdate = unlines ["data Update =", unlines (genUpdateLines fields), ""]
-  genUpdateLines [] = []
-  genUpdateLines (f:fs) = ("    " ++ updateType f) : genUpdateRest fs
-  genUpdateRest [] = []
-  genUpdateRest (f:fs) = ("  | " ++ updateType f) : genUpdateRest fs
-  updateType f = let (_, name, typ) = fieldInfo f in
-    "U" ++ name ++ " CI." ++ typ ++ "Update"
+
+  queryDataArgs = DataArg "Or" "[Query]" : DataArg "Not" "Query" : map (\field -> DataArg
+    (formatString
+      "Q${fieldName}"
+      [("fieldName", capitalize $ fieldName field)])
+    (formatString
+      "CI.${type}Query"
+      [("type", typeMap $ fieldType field)])
+    )
+    fields
+
+  genQuery = generateSumData "Query" queryDataArgs
+
+
+  genUpdate = generateSumData "Update"
+    (map (\field -> DataArg
+      (formatString
+        "U${fieldName}"
+        [("fieldName", capitalize $ fieldName field)])
+      (formatString
+        "CI.${type}Update"
+        [("type", typeMap $ fieldType field)])
+      )
+    fields)
+
   -- define an alias for the record type
-  genResultType = "type RecordType = " ++ name
+  genResultType = formatString "type RecordType = ${modelName}" [("modelName", modelName)]
+
   -- define the find result type (from sqlite-simple query) for the model
-  genResultTuple = "type ResultTuple = (" ++ genResultMembers fields ++ ")\n"
+  genResultTuple = formatString "type ResultTuple = (${members})" [("members", genResultMembers fields)] ++ "\n"
+
   genResultMembers [] = []
   genResultMembers [f] = let (_, _, typ) = fieldInfo f in typ
   genResultMembers (f:fs) = genResultMembers [f] ++ ", " ++ genResultMembers fs
+
   -- define the function which turns a result type into a record
-  genSingleResult = unlines [
-    "singleResult :: [ResultTuple] -> Maybe " ++ name,
-    "singleResult (" ++ singleResult ++ " : _) = Just $ " ++ name ++ " " ++ singleArgs,
-    "singleResult _ = Nothing\n"]
-  singleResult = "(" ++ singleResultMembers fields ++ ")"
+
+  genSingleResult = unlinesFormatString [
+      "singleResult :: [ResultTuple] -> Maybe ${modelName}",
+      "singleResult (${singleResult} : _) = Just $ ${modelName} ${singleArgs}",
+      "singleResult _ = Nothing\n"
+    ] [
+      ("modelName", modelName),
+      ("singleResult", singleResult), 
+      ("singleArgs", singleArgs)
+    ]
+
+  singleResult =formatString
+    "(${singleResultMembers})"
+    [("singleResultMembers", singleResultMembers fields)]
+
   singleResultMembers [] = []
   singleResultMembers [f] = let (n, _, _) = fieldInfo f in n
   singleResultMembers (f:fs) = singleResultMembers [f] ++ ", " ++ singleResultMembers fs
+
   singleArgs = singleArgMembers fields
   singleArgMembers [] = []
-  singleArgMembers (f:fs) = let (n, _, _) = fieldInfo f in 
+  singleArgMembers (f:fs) = let (n, _, _) = fieldInfo f in
     n ++ " " ++ singleArgMembers fs
+
   -- define the function which turns a result list into a record list
-  genMapResults = unlines [
-    subst 'x' name "mapResults :: [ResultTuple] -> [x]",
-    "mapResults = map (\\" ++ singleResult ++ " -> " ++ 
-      name ++ " " ++ singleArgs ++ ")\n"]
+  genMapResults = unlinesFormatString [
+      "mapResults :: [ResultTuple] -> [${modelName}]",
+      "mapResults = map (\\${singleResult} -> ${modelName} ${singleArgs})"
+    ] [
+      ("modelName", modelName),
+      ("singleResult", singleResult),
+      ("singleArgs", singleArgs)
+    ]
+
   -- define the function which converts a value list into a general value list
   genToClientValues = unlines [
     "toClientValues :: [Value] -> [CI.Value]",
@@ -175,12 +234,15 @@ genModel name url fields = unlines [
   toClientUpdate (f:fs) = let (n, n', typ) = fieldInfo f in
     ("toClientUpdate (U" ++ n' ++ " u) = CI.U" ++ typ ++ " \"" ++ n ++ "\" u") :
       toClientUpdate fs
+
   -- helpers
   fieldInfo :: Field -> (String, String, String)
   fieldInfo f = let n = fieldName f in (n, capitalize n, typeMap $ fieldType f)
+
   capitalize :: String -> String
   capitalize [] = []
   capitalize (c:cs) = toUpper c : cs
+
   typeMap :: FieldType -> String
   typeMap StringField = "String"
   typeMap IntField = "Int"
@@ -290,6 +352,7 @@ clientInternal = unlines [
   "  | IntLte Int",
   "  | IntGt Int",
   "  | IntGte Int",
+  "  deriving Show",
   "",
   "data StringQuery = ",
   "    StringEquals String",
@@ -303,6 +366,7 @@ clientInternal = unlines [
   "  | StringContains String",
   "  | StringStartsWith String",
   "  | StringEndsWith String",
+  "  deriving Show",
   "",
   "data DoubleQuery = ",
   "    DoubleEquals Double",
@@ -313,12 +377,14 @@ clientInternal = unlines [
   "  | DoubleLte Double ",
   "  | DoubleGt Double",
   "  | DoubleGte Double ",
+  "  deriving Show",
   "",
   "data BytesQuery = ",
   "    BytesEquals ByteString",
   "  | BytesNot ByteString",
   "  | BytesIn [ByteString]",
   "  | BytesNotIn [ByteString]",
+  "  deriving Show",
   "",
   "data Query =",
   "    QInt String IntQuery",
@@ -327,6 +393,7 @@ clientInternal = unlines [
   "  | QBytes String BytesQuery",
   "  | Or [Query]",
   "  | Not Query",
+  "  deriving Show",
   "",
   "data IntUpdate = ",
   "    IntSet Int",
@@ -334,8 +401,10 @@ clientInternal = unlines [
   "  | IntDecrement Int",
   "  | IntMultiply Int",
   "  | IntDivide Int",
+  "  deriving Show",
   "",
   "data StringUpdate = StringSet String",
+  "  deriving Show",
   "",
   "data DoubleUpdate = ",
   "    DoubleSet Double",
@@ -343,14 +412,17 @@ clientInternal = unlines [
   "  | DoubleDecrement Double",
   "  | DoubleMultiply Double",
   "  | DoubleDivide Double",
+  "  deriving Show",
   "",
   "data BytesUpdate = BytesSet ByteString",
+  "  deriving Show",
   "",
   "data Update =",
   "    UInt String IntUpdate",
   "  | UString String StringUpdate",
   "  | UDouble String DoubleUpdate",
   "  | UBytes String BytesUpdate",
+  "  deriving Show",
   "",
   "data Value = ",
   "    NullVal String",
@@ -358,6 +430,7 @@ clientInternal = unlines [
   "  | StringVal String String",
   "  | DoubleVal String Double",
   "  | BytesVal String ByteString",
+  "  deriving Show",
   "",
   "create :: String -> [Value] -> String",
   "create table row =",
