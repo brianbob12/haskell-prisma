@@ -21,6 +21,7 @@ data IntQuery =
   | IntLte Int
   | IntGt Int
   | IntGte Int
+  deriving Show
 
 data StringQuery = 
     StringEquals String
@@ -34,6 +35,7 @@ data StringQuery =
   | StringContains String
   | StringStartsWith String
   | StringEndsWith String
+  deriving Show
 
 data DoubleQuery = 
     DoubleEquals Double
@@ -44,12 +46,15 @@ data DoubleQuery =
   | DoubleLte Double 
   | DoubleGt Double
   | DoubleGte Double 
+  deriving Show
 
 data BytesQuery = 
     BytesEquals ByteString
   | BytesNot ByteString
   | BytesIn [ByteString]
   | BytesNotIn [ByteString]
+  deriving Show
+
 
 data Query =
     QInt String IntQuery
@@ -58,6 +63,7 @@ data Query =
   | QBytes String BytesQuery
   | Or [Query]
   | Not Query
+  deriving Show
 
 data IntUpdate = 
     IntSet Int
@@ -65,8 +71,10 @@ data IntUpdate =
   | IntDecrement Int
   | IntMultiply Int
   | IntDivide Int
+  deriving Show
 
 data StringUpdate = StringSet String
+  deriving Show
 
 data DoubleUpdate = 
     DoubleSet Double
@@ -74,14 +82,17 @@ data DoubleUpdate =
   | DoubleDecrement Double
   | DoubleMultiply Double
   | DoubleDivide Double
+  deriving Show
 
-data BytesUpdate = BytesSet ByteString
+data BytesUpdate = BytesSet ByteString 
+  deriving Show
 
 data Update =
     UInt String IntUpdate
   | UString String StringUpdate
   | UDouble String DoubleUpdate
   | UBytes String BytesUpdate
+  deriving Show
 
 data Value = 
     NullVal String
@@ -89,6 +100,8 @@ data Value =
   | StringVal String String
   | DoubleVal String Double
   | BytesVal String ByteString
+  deriving Show
+
 
 create :: String -> [Value] -> String
 create table row =

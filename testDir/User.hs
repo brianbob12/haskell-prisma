@@ -26,7 +26,7 @@ data Value =
   | Email String
   | Name String
   | Dob Int
-
+  deriving Show
 
 
 data Query =
@@ -36,7 +36,7 @@ data Query =
   | QEmail CI.StringQuery
   | QName CI.StringQuery
   | QDob CI.IntQuery
-
+  deriving Show
 
 
 data Update =
@@ -44,11 +44,11 @@ data Update =
   | UEmail CI.StringUpdate
   | UName CI.StringUpdate
   | UDob CI.IntUpdate
-
+  deriving Show
 
 
 dbUrl :: IO String
-dbUrl = return "DB_URL"
+dbUrl = return "testDir/db.db"
 
 table :: String
 table = "User"

@@ -1,0 +1,11 @@
+datasource db {
+  url = "testDir/db.db"
+}
+
+model User {
+  id    Int      @id @default(autoincrement())
+  email String   @unique
+  name  String
+  dob   DateTime 
+}
+
