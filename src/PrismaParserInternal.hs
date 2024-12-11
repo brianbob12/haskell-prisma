@@ -37,7 +37,7 @@ nameP = do
   rest <- many $ satisfy (\x -> isAlpha x || isDigit x || x == '_')
   return (first : rest)
 
-stringP = string "\"" >> many (satisfy (/= '"')) <* string "\""
+stringP = string "\"" *> many (satisfy (/= '"')) <* string "\""
 
 listP :: String -> String -> Parser a -> Parser [a]
 listP l r p = wsP $ do
@@ -101,14 +101,14 @@ modelP :: Parser Model
 modelP = wsP $ do
   _ <- string "model" >> many space
   name <- wsP nameP <* string "{" <* many space
-  fields <- some fieldP <* string "}"
+  fields <- many fieldP <* string "}"
   return $ Model { modelName = name, fields = fields }
 
 enumP :: Parser EnumType
 enumP = wsP $ do
   _ <- string "enum" >> many space
   name <- wsP nameP <* string "{" <* many space
-  values <- some (wsP nameP) <* string "}"
+  values <- many (wsP nameP) <* string "}"
   return $ EnumDefinition { enumName = name, values = values }
 
 fieldP :: Parser Field
@@ -178,5 +178,6 @@ expressionP = wsP $ choice [
   mapP "cuid()" (StringExpression CuidExpression),
   mapP "uuid()" (StringExpression UuidExpression),
   mapP "now()" (DateTimeExpression NowExpression),
-  (IntExpression . IntLiteralExpression) <$> intP] where
+  (IntExpression . IntLiteralExpression) <$> intP,
+  (StringExpression . StringLiteralExpression) <$> stringP] where
     intP = read <$> ((++) <$> string "-" <*> some digit <|> some digit)
