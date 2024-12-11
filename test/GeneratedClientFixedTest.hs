@@ -6,6 +6,7 @@ import Test.QuickCheck.Monadic
 import qualified Client as C
 import qualified User
 import Data.List (nub)
+import Test.QuickCheck.Gen (generate)
 
 -- This file is a test for the generated client.
 -- It uses QuickCheck to generate random data and test the client.
@@ -22,18 +23,31 @@ import Data.List (nub)
 --    :l test/GeneratedClientFixedTest.hs
 --    main
 
--- Generator for User Values
-instance Arbitrary User.Value where
-  arbitrary = oneof [
-      User.Id <$> arbitrary
-    , User.Email <$> genSafeString
-    , User.Name <$> genSafeString
-    , User.Dob <$> arbitrary
-    ]
+
+-- Useful Generators
 
 -- Generator for safe strings (no SQL injection characters)
 genSafeString :: Gen String
 genSafeString = listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9']
+
+-- Generator for unique ints for ids
+genUniqueInt :: Gen Int
+genUniqueInt = choose (1, maxBound `div` 2)  -- Using half of maxBound to avoid overflow issues
+
+genSafeStringUnique :: Gen String
+genSafeStringUnique = do
+  s <- genSafeString
+  i <- genUniqueInt
+  return $ s ++ show i
+
+-- Generator for User Values
+instance Arbitrary User.Value where
+  arbitrary = oneof [
+      User.Id <$> genUniqueInt
+    , User.Email <$> genSafeStringUnique
+    , User.Name <$> genSafeString
+    , User.Dob <$> arbitrary
+    ]
 
 -- Generator for IntQuery
 instance Arbitrary C.IntQuery where
@@ -101,20 +115,30 @@ newtype CreateArg = CreateArg { unCreateArg :: [User.Value] }
 
 instance Arbitrary CreateArg where
   arbitrary = do
-    email <- User.Email <$> genSafeString
+    email <- User.Email <$> genSafeStringUnique
     name <- User.Name <$> genSafeString
     dob <- User.Dob <$> arbitrary
     hasId <- arbitrary
     id <- if hasId 
-          then pure <$> (User.Id <$> arbitrary)
+          then pure <$> (User.Id <$> genUniqueInt)
           else return []
     return $ CreateArg $ [email, name, dob] ++ id
 
 -- Property: Create operation should not fail
 prop_createUser :: CreateArg -> Property
 prop_createUser (CreateArg values) = monadicIO $ do
-  run $ User.create values
-  return True
+  run $ User.create values -- create the user without failing
+  -- Find the created user and verify values match
+  result <- run $ User.findMany []  -- Get all users to find the created one
+  let matchingUsers = filter (matchesValues values) result
+  return (not $ null matchingUsers)
+  where
+    matchesValues vals user = all (matchesValue user) vals
+    matchesValue user val = case val of
+      User.Email e -> User.getUserEmail user == e  
+      User.Name n -> User.getUserName user == n
+      User.Dob d -> User.getUserDob user == d
+      User.Id i -> User.getUserId user == i
 
 -- Property: Find after create should return something
 prop_findAfterCreate :: [User.Value] -> [User.Query] -> Property

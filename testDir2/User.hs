@@ -13,9 +13,9 @@ import Data.String (fromString)
 import System.Environment (getEnv)
 
 data User = User { 
-  getUserId :: Int,
-  getUserEmail :: String,
-  getUserName :: String,
+  getUserId :: Int
+  getUserEmail :: String
+  getUserName :: String
   getUserDob :: Int
 } deriving Show
 

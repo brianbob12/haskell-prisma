@@ -12,6 +12,8 @@ writeFiles dir ((file, contents):t) = do
   writeFile (dir ++ "/" ++ file) contents
   writeFiles dir t
 
+-- Generate the module and write it to the given directory
+-- generateModule (PathToSchemaFile, PathToOutputDir)
 generateModule :: String -> String -> IO ()
 generateModule schema dir = do
   schemaStr <- readFile schema

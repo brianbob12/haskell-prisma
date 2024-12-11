@@ -8,10 +8,10 @@ module Client (
   --Exports for User
   User.User (..),
   User_Value (..), User_Query (..), User_Update (..),
-  user_create, user_createMany,
-  user_findFirst, user_findMany, user_findUnique,
-  user_updateMany, user_updateUnique,
-  user_deleteMany, user_deleteUnique
+  User_create, User_createMany,
+  User_findFirst, User_findMany, User_findUnique,
+  User_updateMany, User_updateUnique,
+  User_deleteMany, User_deleteUnique
 
 ) where
 

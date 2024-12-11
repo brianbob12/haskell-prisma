@@ -32,6 +32,8 @@ library
       Parser
       PrismaParser
       Paths_haskell_prisma
+      GeneratorToolkit
+      FormatString
   autogen-modules:
       Paths_haskell_prisma
   hs-source-dirs:

@@ -16,4 +16,6 @@ formatString ('$' : '{' : rest) vars =
 formatString (c : rest) vars = 
   c : (formatString rest vars)
 
-
+-- Takes a list of strings and a list of variables and formats each string with the variables
+unlinesFormatString :: [String] -> [(String, String)] -> String
+unlinesFormatString strings vars = unlines (map (\s -> formatString s vars) strings)

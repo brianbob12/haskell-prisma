@@ -1,7 +1,7 @@
 module FormatStringSpec where
 
 import Test.HUnit
-import FormatString (formatString)
+import FormatString (formatString, unlinesFormatString)
 
 tests :: Test
 tests = TestList [
@@ -9,7 +9,8 @@ tests = TestList [
     TestLabel "formatString - single variable" testSingleVariable,
     TestLabel "formatString - multiple variables" testMultipleVariables,
     TestLabel "formatString - repeated variables" testRepeatedVariables,
-    TestLabel "formatString - missing variable" testMissingVariable
+    TestLabel "formatString - missing variable" testMissingVariable,
+    TestLabel "unlinesFormatString - multiple lines" testUnlinesFormatString
   ]
 
 testNoVariables :: Test
@@ -46,6 +47,16 @@ testMissingVariable = TestCase $ assertEqual
     "Should leave unreplaced variables as is"
     "Hello, ${unknown}!"
     (formatString "Hello, ${unknown}!" [("name", "John")])
+
+testUnlinesFormatString :: Test
+testUnlinesFormatString = TestCase $ assertEqual
+    "Should format multiple lines with variables"
+    "Hello, John!\nYou are 30 years old.\nGoodbye, John!\n"
+    (unlinesFormatString [
+        "Hello, ${name}!",
+        "You are ${age} years old.",
+        "Goodbye, ${name}!"
+    ] [("name", "John"), ("age", "30")])
 
 main :: IO Counts
 main = runTestTT tests
