@@ -30,6 +30,8 @@ genClient = gen . map modelName where
     "  -- query constructors from ClientInternal",
     "  IntQuery (..), StringQuery (..), DoubleQuery (..), BytesQuery (..),",
     "  IntUpdate (..), StringUpdate (..), DoubleUpdate (..), BytesUpdate (..),",
+    "  -- Result type from ClientInternal",
+    "  Result (..),",
     "  "
     ]
 
