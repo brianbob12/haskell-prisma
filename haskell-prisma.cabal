@@ -25,15 +25,16 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      HaskellPrisma
   other-modules:
-      PrismaGenerator
       PrismaSchemaRaw
-      Parser
       PrismaParser
-      Paths_haskell_prisma
+      PrismaParserInternal
+      Parser
+      PrismaGenerator
       GeneratorToolkit
       FormatString
+      Paths_haskell_prisma
   autogen-modules:
       Paths_haskell_prisma
   hs-source-dirs:
@@ -41,7 +42,6 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
-    , HUnit
   default-language: Haskell2010
 
 executable haskell-prisma-exe
@@ -63,15 +63,18 @@ test-suite haskell-prisma-test
   main-is: Spec.hs
   other-modules:
       TestPrismaParser
-      Paths_haskell_prisma
       GeneratorToolkitSpec
+      FormatStringSpec
+      Paths_haskell_prisma
   autogen-modules:
       Paths_haskell_prisma
   hs-source-dirs:
       test
+      src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , haskell-prisma
     , HUnit
+    , QuickCheck
   default-language: Haskell2010

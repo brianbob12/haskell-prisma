@@ -31,19 +31,19 @@ prop_expression e = parse expressionP (toString e) == Right e
 
 runQC :: IO ()
 runQC = do
-  putStrLn "Round-trip test of expression parsing"
+  putStr "Round-trip test of expression parsing... "
   quickCheck prop_expression
-  putStrLn "Round-trip test of attribute parsing"
+  putStr "Round-trip test of attribute parsing... "
   quickCheck prop_attribute
-  putStrLn "Round-trip test of field type parsing"
+  putStr "Round-trip test of field type parsing... "
   quickCheck prop_fieldType
-  putStrLn "Round-trip test of field parsing"
+  putStr "Round-trip test of field parsing... "
   quickCheck prop_field
-  putStrLn "Round-trip test of enum parsing"
+  putStr "Round-trip test of enum parsing... "
   quickCheck prop_enum
-  putStrLn "Round-trip test of model parsing"
+  putStr "Round-trip test of model parsing... "
   quickCheck prop_model
-  putStrLn "Round-trip test of schema parsing"
+  putStr "Round-trip test of schema parsing... "
   quickCheck prop_schema
 
 instance Arbitrary Schema where
@@ -109,4 +109,4 @@ arbitraryName = do
 vectorUpTo :: Gen a -> Int -> Gen [a]
 vectorUpTo arb n = do
   len <- chooseInt (0, n)
-  vectorOf n arb
+  vectorOf len arb

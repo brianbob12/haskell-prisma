@@ -16,19 +16,19 @@ tests = TestList [
 testRecordEmpty :: Test
 testRecordEmpty = TestCase $ assertEqual
     "Should generate record with no fields"
-    "data Person = Person { \n  }\n"
+    "data Person = Person { \n} deriving Show\n"
     (generateRecordData "Person" [])
 
 testRecordSingle :: Test
 testRecordSingle = TestCase $ assertEqual
     "Should generate record with single field"
-    "data Person = Person { \n  name :: String\n  }\n"
+    "data Person = Person { \n  name :: String\n} deriving Show\n"
     (generateRecordData "Person" [DataArg "name" "String"])
 
 testRecordMultiple :: Test
 testRecordMultiple = TestCase $ assertEqual
     "Should generate record with multiple fields"
-    "data Person = Person { \n  name :: String\n  age :: Int\n  }\n"
+    "data Person = Person { \n  name :: String,\n  age :: Int\n} deriving Show\n"
     (generateRecordData "Person" [
       DataArg "name" "String",
       DataArg "age" "Int"
@@ -43,13 +43,13 @@ testSumEmpty = TestCase $ assertEqual
 testSumSingle :: Test
 testSumSingle = TestCase $ assertEqual
     "Should generate sum type with single constructor"
-    "data Shape = \n  Circle Double\n"
+    "data Shape = \n    Circle Double\n  deriving Show\n"
     (generateSumData "Shape" [DataArg "Circle" "Double"])
 
 testSumMultiple :: Test
 testSumMultiple = TestCase $ assertEqual
     "Should generate sum type with multiple constructors"
-    "data Shape = \n  Circle Double\n  Rectangle Double Double\n"
+    "data Shape = \n    Circle Double\n  | Rectangle Double Double\n  deriving Show\n"
     (generateSumData "Shape" [
       DataArg "Circle" "Double",
       DataArg "Rectangle" "Double Double"
