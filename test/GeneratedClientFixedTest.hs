@@ -141,10 +141,10 @@ prop_createUser (CreateArg values) = monadicIO $ do
       User.Id i -> User.getUserId user == i
 
 -- Property: Find after create should return something
-prop_findAfterCreate :: [User.Value] -> [User.Query] -> Property
-prop_findAfterCreate values queries = monadicIO $ do
+prop_findMany :: CreateArg -> [User.Query] -> Property
+prop_findAfterCreate (CreateArg values) = monadicIO $ do
   run $ User.create values
-  result <- run $ User.findMany queries
+  result <- run $ User.findMany (values)
   return $ not (null result)
 
 -- Property: Update should not fail
