@@ -212,26 +212,45 @@ genModel modelName url fields = unlines [
     "toClientValues values = ",
     "  if allThere values then OK $ map convertValue values",
     "    else SqlError \"Missing field(s)\"",
-    "  where", unlines (convertValueV fields), 
-    "    allThere = aux [" ++ genAllThere fields ++ "]",
+    "  where",
+    unlines (convertValueV fields), 
+    "    allThere = aux [" ++ genAllThere (filter fieldRequiredForCreation fields) ++ "]",
     "    aux [] _ = True; aux (f:fs) vs = any f vs && aux fs vs",
-    unlines (genAllThereAuxes fields)]
+    unlines (genAllThereAuxes fields)
+    ]
+
   convertValueV [] = []
-  convertValueV (f:fs) = let (n, n', typ) = fieldInfo f in
-    ("    convertValue (" ++ n' ++ " x) = CI." ++ typ ++ "Val \"" ++ n ++ "\" x") :
-      convertValueV fs
+  convertValueV (field:rest) = let (myFieldName, myFieldNameCapitalized, typ) = fieldInfo field in
+    formatString
+      "    convertValue (${fieldNameCapitalized} x) = CI.${type}Val \"${fieldName}\" x"
+      [("fieldNameCapitalized", myFieldNameCapitalized), ("type", typ), ("fieldName", myFieldName)]
+    : convertValueV rest
+
   genAllThere [] = []
-  genAllThere [f] = let (_, n, _) = fieldInfo f in "is" ++ n
-  genAllThere (f:fs) = let (_, n, _) = fieldInfo f in "is" ++ n ++ ", " ++ genAllThere fs
+  genAllThere [field] = let (_, fieldNameCapitalized, _) = fieldInfo field in
+    formatString "is${fieldNameCapitalized}" [("fieldNameCapitalized", fieldNameCapitalized)]
+  genAllThere (field:fields) = let (_, fieldNameCapitalized, _) = fieldInfo field in
+    formatString
+      "is${fieldNameCapitalized}, "
+      [("fieldNameCapitalized", fieldNameCapitalized)]
+    ++ genAllThere fields
+
   genAllThereAuxes [] = [""]
-  genAllThereAuxes (f:fs) = let (_, n, _) = fieldInfo f in
-    ("    is" ++ n ++ " (" ++ n ++ " _) = True; is" ++ n ++ " _ = False") : genAllThereAuxes fs
+  genAllThereAuxes (field:rest) = 
+    if fieldRequiredForCreation field then
+      let (_, fieldNameCapitalized, _) = fieldInfo field in
+      ("    is" ++ fieldNameCapitalized ++ " (" ++ fieldNameCapitalized ++ " _) = True; is" ++ fieldNameCapitalized ++ " _ = False") : genAllThereAuxes rest
+    else
+      genAllThereAuxes rest
 
   -- define the function which converts a query list into a general query list
   genToClientQueries = unlines [
     "toClientQueries :: [Query] -> [CI.Query]",
     "toClientQueries = map convertQuery",
-    "  where", unlines (convertQuery fields), ""]
+    "  where", unlines (convertQuery fields),
+    ""
+    ]
+
   convertQuery [] = []
   convertQuery (f:fs) = let (n, n', typ) = fieldInfo f in
     ("    convertQuery (Q" ++ n' ++ " q) = CI.Q" ++ typ ++ " \"" ++ n ++ "\" q") :
@@ -253,7 +272,33 @@ genModel modelName url fields = unlines [
 
   -- helpers
   fieldInfo :: Field -> (String, String, String)
-  fieldInfo f = let n = fieldName f in (n, capitalize n, typeMap $ fieldType f)
+  fieldInfo field = let myFieldName = fieldName field in
+    (myFieldName, capitalize myFieldName, typeMap $ fieldType field)
+
+  fieldHasAttribute :: Field -> Attribute -> Bool
+  fieldHasAttribute field attribute = attribute `elem` attributes field
+
+  attributeIsDefault :: Attribute -> Bool
+  attributeIsDefault (DefaultAttribute _) = True
+  attributeIsDefault _ = False
+
+  fieldHasDefault :: Field -> Bool
+  fieldHasDefault field = any attributeIsDefault $ attributes field
+
+  typeIsOptional :: FieldType -> Bool
+  typeIsOptional (OptionalField _) = True
+  typeIsOptional _ = False
+
+  fieldIsOptional :: Field -> Bool
+  fieldIsOptional field = typeIsOptional $ fieldType field
+
+  fieldRequiredForCreation :: Field -> Bool
+  fieldRequiredForCreation field = not $ or [
+    fieldIsOptional field,
+    fieldHasDefault field,
+    fieldHasAttribute field UpdatedAtAttribute,
+    fieldHasAttribute field IgnoreAttribute
+    ]
 
   capitalize :: String -> String
   capitalize [] = []

@@ -1,5 +1,5 @@
 datasource db {
-  url = "DB_URL"
+  url = "testClient/db.db"
 }
 
 model User {

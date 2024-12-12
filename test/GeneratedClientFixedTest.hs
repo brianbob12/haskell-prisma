@@ -7,6 +7,7 @@ import qualified Client as C
 import qualified User
 import Data.List (nub)
 import Test.QuickCheck.Gen (generate)
+import ClientInternal (Result(..))
 
 -- This file is a test for the generated client.
 -- It uses QuickCheck to generate random data and test the client.
@@ -17,8 +18,8 @@ import Test.QuickCheck.Gen (generate)
 --    stack ghci
 -- 2. In GHCi:
 --    :set -isrc
---    :l lib.hs
---    generateClient example/schema.prisma testClient
+--    :l src/HaskellPrisma.hs
+--    generateModule example/schema.prisma testClient
 --    :set -itestClient
 --    :l test/GeneratedClientFixedTest.hs
 --    main
@@ -141,14 +142,18 @@ instance Arbitrary UpdateArg where
         if updateDob then [dob] else []
       ]
 
--- Property: Create operation should not fail
+-- Property: Create operation should return OK and findAll should find the created user
 prop_createUser_then_findAll :: CreateArg -> Property
 prop_createUser_then_findAll (CreateArg values) = monadicIO $ do
-  run $ User.create values -- create the user without failing
-  -- Find the created user and verify values match
-  result <- run $ User.findMany []  -- Get all users to find the created one
-  let matchingUsers = filter (matchesValues values) result
-  return (not $ null matchingUsers)
+  createResult <- run $ User.create values
+  case createResult of
+    SqlError err -> return $ counterexample ("Create failed: " ++ err) False
+    OK () -> do
+      -- Find the created user and verify values match
+      findResult <- run $ User.findMany []  -- Get all users to find the created one
+      case findResult of
+        SqlError err -> return $ counterexample ("Find failed: " ++ err) False
+        OK users -> return $ property $ not $ null $ filter (matchesValues values) users
   where
     matchesValues vals user = all (matchesValue user) vals
     matchesValue user val = case val of
@@ -164,12 +169,17 @@ convertValueToQuery (User.Dob d) = User.QDob (C.IntEquals d)
 convertValueToQuery (User.Id i) = User.QId (C.IntEquals i)
 
 
--- Property: Find after create should return something
+-- Property: Find after create should return OK and find the user
 prop_createUser_then_query_with_findMany :: CreateArg -> Property
 prop_createUser_then_query_with_findMany (CreateArg values) = monadicIO $ do
-  run $ User.create values
-  result <- run $ User.findMany (map convertValueToQuery values)
-  return $ not (null result)
+  createResult <- run $ User.create values
+  case createResult of
+    SqlError err -> return $ counterexample ("Create failed: " ++ err) False
+    OK () -> do
+      findResult <- run $ User.findMany (map convertValueToQuery values)
+      case findResult of
+        SqlError err -> return $ counterexample ("Find failed: " ++ err) False
+        OK users -> return $ property $ not (null users)
 
 convertUpdateToValues :: User.Update -> User.Value
 convertUpdateToValues (User.UEmail (C.StringSet e)) = User.Email e
@@ -177,16 +187,22 @@ convertUpdateToValues (User.UName (C.StringSet n)) = User.Name n
 convertUpdateToValues (User.UDob (C.IntSet d)) = User.Dob d
 convertUpdateToValues (User.UId (C.IntSet i)) = User.Id i
 
--- Property: Create and update a user, then a find should return the updated user
+-- Property: Create and update a user, then find should return OK with updated user
 prop_updateUnique :: CreateArg -> UpdateArg -> Property
 prop_updateUnique (CreateArg values) (UpdateArg updates) = 
   not (null updates) ==> monadicIO $ do
-    run $ User.create values
-    run $ User.updateUnique values updates
-    result <- run $ User.findUnique (map convertUpdateToValues updates)
-    case result of
-      Nothing -> return False  -- User should still exist
-      Just user -> return $ all (updateApplied user) updates
+    createResult <- run $ User.create values
+    case createResult of
+      SqlError err -> return $ counterexample ("Create failed: " ++ err) False
+      OK () -> do
+        updateResult <- run $ User.updateUnique values updates
+        case updateResult of
+          SqlError err -> return $ counterexample ("Update failed: " ++ err) False
+          OK () -> do
+            findResult <- run $ User.findUnique (map convertUpdateToValues updates)
+            case findResult of
+              SqlError err -> return $ counterexample ("Find failed: " ++ err) False
+              OK user -> return $ property $ all (updateApplied user) updates
   where
     updateApplied user update = case update of
       User.UEmail (C.StringSet e) -> 
@@ -207,22 +223,24 @@ prop_updateUnique (CreateArg values) (UpdateArg updates) =
         else error $ "ID mismatch: expected " ++ show i ++ " but got " ++ show (User.getUserId user)
       _ -> True  -- For other update types
 
--- Property: Delete should not fail
+-- Property: Delete should return OK and user should not be found after
 prop_deleteUser :: CreateArg -> Property
 prop_deleteUser (CreateArg values) = monadicIO $ do
     -- First create a user
-    run $ User.create values
-    
-    -- Delete the user using queries based on their values
-    run $ User.deleteUnique values
-    
-    -- Try to find the deleted user
-    result <- run $ User.findUnique values
-    
-    -- The test passes if the user is not found (result is Nothing)
-    case result of
-      Nothing -> return True
-      Just _ -> return False
+    createResult <- run $ User.create values
+    case createResult of
+      SqlError err -> return $ counterexample ("Create failed: " ++ err) False
+      OK () -> do
+        -- Delete the user using queries based on their values
+        deleteResult <- run $ User.deleteUnique values
+        case deleteResult of
+          SqlError err -> return $ counterexample ("Delete failed: " ++ err) False
+          OK () -> do
+            -- Try to find the deleted user
+            findResult <- run $ User.findUnique values
+            case findResult of
+              SqlError _ -> return $ property True  -- Expected error when not found
+              OK _ -> return $ counterexample "User still exists after deletion" False
 
 -- Run all tests
 return []
