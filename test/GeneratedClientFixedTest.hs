@@ -124,9 +124,26 @@ instance Arbitrary CreateArg where
           else return []
     return $ CreateArg $ [email, name, dob] ++ id
 
+newtype UpdateArg = UpdateArg { unUpdateArg :: [User.Update] }
+  deriving (Show)
+
+instance Arbitrary UpdateArg where
+  arbitrary = do
+    email <- User.UEmail <$> C.StringSet <$> genSafeStringUnique
+    name <- User.UName <$> C.StringSet <$> genSafeString
+    dob <- User.UDob <$> C.IntSet <$> arbitrary
+    updateEmail::Bool <- arbitrary
+    updateName::Bool <- arbitrary
+    updateDob::Bool <- arbitrary
+    return $ UpdateArg $ concat [
+        if updateEmail then [email] else [],
+        if updateName then [name] else [], 
+        if updateDob then [dob] else []
+      ]
+
 -- Property: Create operation should not fail
-prop_createUser :: CreateArg -> Property
-prop_createUser (CreateArg values) = monadicIO $ do
+prop_createUser_then_findAll :: CreateArg -> Property
+prop_createUser_then_findAll (CreateArg values) = monadicIO $ do
   run $ User.create values -- create the user without failing
   -- Find the created user and verify values match
   result <- run $ User.findMany []  -- Get all users to find the created one
@@ -140,24 +157,72 @@ prop_createUser (CreateArg values) = monadicIO $ do
       User.Dob d -> User.getUserDob user == d
       User.Id i -> User.getUserId user == i
 
+convertValueToQuery :: User.Value -> User.Query
+convertValueToQuery (User.Email e) = User.QEmail (C.StringEquals e)
+convertValueToQuery (User.Name n) = User.QName (C.StringEquals n)
+convertValueToQuery (User.Dob d) = User.QDob (C.IntEquals d)
+convertValueToQuery (User.Id i) = User.QId (C.IntEquals i)
+
+
 -- Property: Find after create should return something
-prop_findMany :: CreateArg -> [User.Query] -> Property
-prop_findAfterCreate (CreateArg values) = monadicIO $ do
+prop_createUser_then_query_with_findMany :: CreateArg -> Property
+prop_createUser_then_query_with_findMany (CreateArg values) = monadicIO $ do
   run $ User.create values
-  result <- run $ User.findMany (values)
+  result <- run $ User.findMany (map convertValueToQuery values)
   return $ not (null result)
 
--- Property: Update should not fail
-prop_updateUser :: [User.Query] -> [User.Update] -> Property
-prop_updateUser queries updates = monadicIO $ do
-  run $ User.updateMany queries updates
-  return True
+convertUpdateToValues :: User.Update -> User.Value
+convertUpdateToValues (User.UEmail (C.StringSet e)) = User.Email e
+convertUpdateToValues (User.UName (C.StringSet n)) = User.Name n
+convertUpdateToValues (User.UDob (C.IntSet d)) = User.Dob d
+convertUpdateToValues (User.UId (C.IntSet i)) = User.Id i
+
+-- Property: Create and update a user, then a find should return the updated user
+prop_updateUnique :: CreateArg -> UpdateArg -> Property
+prop_updateUnique (CreateArg values) (UpdateArg updates) = 
+  not (null updates) ==> monadicIO $ do
+    run $ User.create values
+    run $ User.updateUnique values updates
+    result <- run $ User.findUnique (map convertUpdateToValues updates)
+    case result of
+      Nothing -> return False  -- User should still exist
+      Just user -> return $ all (updateApplied user) updates
+  where
+    updateApplied user update = case update of
+      User.UEmail (C.StringSet e) -> 
+        if User.getUserEmail user == e 
+        then True 
+        else error $ "Email mismatch: expected " ++ e ++ " but got " ++ User.getUserEmail user
+      User.UName (C.StringSet n) -> 
+        if User.getUserName user == n 
+        then True 
+        else error $ "Name mismatch: expected " ++ n ++ " but got " ++ User.getUserName user
+      User.UDob (C.IntSet d) -> 
+        if User.getUserDob user == d 
+        then True 
+        else error $ "DOB mismatch: expected " ++ show d ++ " but got " ++ show (User.getUserDob user)
+      User.UId (C.IntSet i) -> 
+        if User.getUserId user == i 
+        then True 
+        else error $ "ID mismatch: expected " ++ show i ++ " but got " ++ show (User.getUserId user)
+      _ -> True  -- For other update types
 
 -- Property: Delete should not fail
-prop_deleteUser :: [User.Query] -> Property
-prop_deleteUser queries = monadicIO $ do
-  run $ User.deleteMany queries
-  return True
+prop_deleteUser :: CreateArg -> Property
+prop_deleteUser (CreateArg values) = monadicIO $ do
+    -- First create a user
+    run $ User.create values
+    
+    -- Delete the user using queries based on their values
+    run $ User.deleteUnique values
+    
+    -- Try to find the deleted user
+    result <- run $ User.findUnique values
+    
+    -- The test passes if the user is not found (result is Nothing)
+    case result of
+      Nothing -> return True
+      Just _ -> return False
 
 -- Run all tests
 return []
