@@ -312,7 +312,6 @@ genModel modelName url fields = unlines [
   typeMap FloatField = "Double"
   typeMap DecimalField = "Double"
   typeMap BytesField = "ByteString"
-  typeMap (OptionalField t) = "Maybe (" ++ typeMap t ++ ")"
   typeMap t = error ("unsupported type: " ++ show t)
 
 modelFunctions = unlines [
