@@ -49,9 +49,9 @@ runQC = do
 instance Arbitrary Schema where
   arbitrary = do
     url <- (arbitrary :: Gen DatabaseURL)
-    es <- (arbitrary :: Gen [EnumType])
-    ms <- (arbitrary :: Gen [Model])
-    return $ Schema url es ms
+    es <- (arbitrary :: Gen EnumType) `vectorUpTo` 10
+    ms <- (arbitrary :: Gen Model) `vectorUpTo` 10
+    return $ Schema url es ms where
 
 instance Arbitrary DatabaseURL where
   arbitrary = do
@@ -67,14 +67,14 @@ instance Arbitrary EnumType where
 instance Arbitrary Model where
   arbitrary = do
     n <- arbitraryName
-    fs <- (arbitrary :: Gen [Field])
+    fs <- (arbitrary :: Gen Field) `vectorUpTo` 30
     return $ Model n fs
 
 instance Arbitrary Field where
   arbitrary = do
     n <- arbitraryName
     t <- (arbitrary :: Gen FieldType)
-    as <- (arbitrary :: Gen [Attribute])
+    as <- (arbitrary :: Gen Attribute) `vectorUpTo` 7
     return $ Field n t as
 
 instance Arbitrary FieldType where
@@ -106,3 +106,7 @@ arbitraryName = do
   rest <- listOf $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ ['_']
   return (start : rest)
 
+vectorUpTo :: Gen a -> Int -> Gen [a]
+vectorUpTo arb n = do
+  len <- chooseInt (0, n)
+  vectorOf n arb
