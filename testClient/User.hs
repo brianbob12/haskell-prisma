@@ -121,10 +121,10 @@ findMany queries = do
     Left ex -> return $ SqlError (show (ex :: SomeException))
     Right x -> return $ OK x
 
-findUnique :: [Value] -> IO (Result User)
-findUnique values = do
+findUnique :: [Query] -> IO (Result User)
+findUnique queries = do
   url <- dbUrl
-  let sqlQuery = CI.findFirst table (map convertValue values)
+  let sqlQuery = CI.findFirst table (toClientQueries queries)
   result <- try $ do
     conn <- SQL.open url
     results <- SQL.query_ conn (SQL.Query (fromString sqlQuery)) :: IO [ResultTuple]
@@ -146,10 +146,10 @@ updateMany queries updates = do
     Left ex -> return $ SqlError (show (ex :: SomeException))
     Right () -> return $ OK ()
 
-updateUnique :: [Value] -> [Update] -> IO (Result ())
-updateUnique values updates = do
+updateUnique :: [Query] -> [Update] -> IO (Result ())
+updateUnique queries updates = do
   url <- dbUrl
-  let sqlQuery = CI.updateUnique table (map convertValue values) (map toClientUpdate updates)
+  let sqlQuery = CI.updateUnique table (toClientQueries queries) (map toClientUpdate updates)
   result <- try $ do
     conn <- SQL.open url
     SQL.execute_ conn (SQL.Query (fromString sqlQuery))
@@ -170,10 +170,10 @@ deleteMany queries = do
     Left ex -> return $ SqlError (show (ex :: SomeException))
     Right () -> return $ OK ()
 
-deleteUnique :: [Value] -> IO (Result ())
-deleteUnique values = do
+deleteUnique :: [Query] -> IO (Result ())
+deleteUnique queries = do
   url <- dbUrl
-  let sqlQuery = CI.deleteUnique table (map convertValue values)
+  let sqlQuery = CI.deleteUnique table (toClientQueries queries)
   result <- try $ do
     conn <- SQL.open url
     SQL.execute_ conn (SQL.Query (fromString sqlQuery))

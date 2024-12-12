@@ -187,6 +187,12 @@ convertUpdateToValues (User.UName (C.StringSet n)) = User.Name n
 convertUpdateToValues (User.UDob (C.IntSet d)) = User.Dob d
 convertUpdateToValues (User.UId (C.IntSet i)) = User.Id i
 
+convertUpdateToQuery :: User.Update -> User.Query
+convertUpdateToQuery (User.UEmail (C.StringSet e)) = User.QEmail (C.StringEquals e)
+convertUpdateToQuery (User.UName (C.StringSet n)) = User.QName (C.StringEquals n)
+convertUpdateToQuery (User.UDob (C.IntSet d)) = User.QDob (C.IntEquals d)
+convertUpdateToQuery (User.UId (C.IntSet i)) = User.QId (C.IntEquals i)
+
 -- Property: Create and update a user, then find should return OK with updated user
 prop_updateUnique :: CreateArg -> UpdateArg -> Property
 prop_updateUnique (CreateArg values) (UpdateArg updates) = 
@@ -195,11 +201,11 @@ prop_updateUnique (CreateArg values) (UpdateArg updates) =
     case createResult of
       SqlError err -> return $ counterexample ("Create failed: " ++ err) False
       OK () -> do
-        updateResult <- run $ User.updateUnique values updates
+        updateResult <- run $ User.updateUnique (map convertValueToQuery values) updates
         case updateResult of
           SqlError err -> return $ counterexample ("Update failed: " ++ err) False
           OK () -> do
-            findResult <- run $ User.findUnique (map convertUpdateToValues updates)
+            findResult <- run $ User.findUnique (map convertUpdateToQuery updates)
             case findResult of
               SqlError err -> return $ counterexample ("Find failed: " ++ err) False
               OK user -> return $ property $ all (updateApplied user) updates
@@ -232,12 +238,12 @@ prop_deleteUser (CreateArg values) = monadicIO $ do
       SqlError err -> return $ counterexample ("Create failed: " ++ err) False
       OK () -> do
         -- Delete the user using queries based on their values
-        deleteResult <- run $ User.deleteUnique values
+        deleteResult <- run $ User.deleteUnique (map convertValueToQuery values)
         case deleteResult of
           SqlError err -> return $ counterexample ("Delete failed: " ++ err) False
           OK () -> do
             -- Try to find the deleted user
-            findResult <- run $ User.findUnique values
+            findResult <- run $ User.findUnique (map convertValueToQuery values)
             case findResult of
               SqlError _ -> return $ property True  -- Expected error when not found
               OK _ -> return $ counterexample "User still exists after deletion" False
